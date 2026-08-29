@@ -1,5 +1,11 @@
 # NTN loop lab — fourteen-day plan
 
+> **Deferred at day 2 on 2026-08-28.** Days 0 to 2 are done and committed. Days 3 to 14 are on
+> hold behind [`oran-kpm-guard`](../../oran-kpm-guard), which builds the real E2 interface this
+> plan's millisecond tier needs. The reason is in the README: days 8 to 11 here would otherwise
+> measure a self-built RIC speaking JSON over TCP, and report the emulator's latency as O-RAN's.
+> Nothing below is retracted; the day-1 and day-2 results stand and the open items are still open.
+
 ## The question
 
 In a LEO non-terrestrial network the control loops that keep a link alive span seven orders

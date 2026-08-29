@@ -13,9 +13,21 @@ Not a survey, not a demo reel. One question, measured end to end, with the failu
 
 ## Status
 
-**Day 2 of 14.** The physics and the antenna are done and tested; the link, the silicon and
-the control loops are not. 29 tests pass. Everything below is reproducible with `make orbit`
-and `make antenna`.
+**Paused at day 2 of 14, on 2026-08-28.** The physics and the antenna are done and tested; the
+link, the silicon and the control loops are not. 29 tests pass. Everything below is reproducible
+with `make orbit` and `make antenna`, and the results in this README stand as measured.
+
+The work stopped for a reason worth stating plainly. Days 4 onward put a control loop over a
+Near-RT RIC, and the RIC this plan reached for was the self-built one from the first lab —
+newline-delimited JSON over TCP, not ASN.1 APER over SCTP. A timescale map whose millisecond
+tier is measured on an emulated E2 interface measures the emulator. So the E2 interface is being
+built for real first, in a separate repository:
+
+**[`oran-kpm-guard`](../oran-kpm-guard)** — a degradation-detector xApp on the OSC Near-RT RIC
+(`i-release`) with a srsRAN Project gNB and Open5GS over ZMQ, plus a released labelled dataset of
+KPM traces under injected faults. It is this project's prerequisite, not its replacement: days 8
+to 13 here are strictly stronger rebuilt on a real E2 interface, and the day-1 and day-2 numbers
+below are what they will be measured against when this resumes.
 
 ### The first result, and it is not the one the plan expected
 
