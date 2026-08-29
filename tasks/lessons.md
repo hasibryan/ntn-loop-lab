@@ -275,3 +275,46 @@ of recomputing them five times. S-band run: 4.8 s. Ka at 9604 elements: 69 s.
 **Rule:** when array size is a parameter, check what the largest configuration allocates before
 running it. On this machine the difference between "vectorised" and "chunked" is the difference
 between fast and swapping.
+
+---
+
+## 7. Answered from outside this repository
+
+### 7.1 srsRAN Project does implement Rel-17 NTN, and the day-5 experiment is better for it
+
+Day 0 left an open question, and the plan wrote its assumption into the schedule: *does srsRAN
+Project implement any Rel-17 NTN feature — `K_offset`, ephemeris-assisted common TA, cell-specific
+timing offset? The plan assumes srsRAN does not, and treats that as the experiment rather than a
+defect.*
+
+**The assumption is wrong.** Read on 2026-08-28 off `configs/geo_ntn.yml` in
+`srsRAN_Project@release_25_10` (commit `d2f4b70dda8e2c557d5b05a0ac5f92dbddda19bc`, 2025-11-11),
+cloned while setting up the neighbouring `oran-kpm-guard` project:
+
+```yaml
+ntn:
+  cell_specific_koffset: 150   # sets the maximum possible channel delay
+  ta_common: 0
+  ephemeris_info:              # ecef ephemeris information for the satellite
+  sib:                         # system information block 19 scheduling, SIB19 is the NTN information block
+```
+
+All three mechanisms the plan named are present, plus SIB19 scheduling, in a config file shipped
+as a worked NTN scenario.
+
+This makes the day-5 experiment stronger rather than redundant. The plan was going to sweep
+one-way delay until RACH and HARQ broke, then *point at* the Release 17 mechanism that exists to
+fix it. The mechanism can instead be **switched off and on across the same sweep**, which turns a
+gestured-at fix into a measured one: the same failure, the same log line, and then the delay at
+which it no longer occurs with `cell_specific_koffset` configured.
+
+Two things this does not change. The README's claim that this is *not* a Rel-17 NTN compliant
+testbed still stands until compliance is demonstrated rather than assumed from a config key. And
+`geo_ntn.yml` is named for a geostationary scenario, so its `koffset` of 150 is not the LEO value
+— the day-1 delay derivation supplies that.
+
+**Rule, and it is the same one as 1.1 in a different costume:** the plan's assumptions about what
+other people's software does are hypotheses with a shelf life, and they are cheapest to check on
+the day the repository is first cloned. This one was free — it fell out of a clone made for
+another project — and it would have cost a day of building an experiment around an absence that
+was not there.
