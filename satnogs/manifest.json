@@ -1,0 +1,9 @@
+{
+  "_comment": "Pinned SatNOGS observations. Day 3 fetches exactly these, so the Doppler validation is reproducible. Prefer narrowband CW or BPSK telemetry beacons near 435 MHz: the cleanest carrier to track. Fill in after browsing network.satnogs.org for good-quality, high-elevation passes; keep several in case one turns out to be noisy.",
+  "observations": [],
+  "requirements": {
+    "min_max_elevation_deg": 40,
+    "prefer_band_mhz": [430, 440],
+    "need": ["waterfall or audio artefact", "TLE current at capture time", "known nominal beacon frequency"]
+  }
+}

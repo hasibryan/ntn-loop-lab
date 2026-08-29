@@ -1,0 +1,45 @@
+# ---------------------------------------------------------------------------
+# Large local artefacts. Everything below is either regenerable by the scripts
+# in scripts/, or a third-party download. None of it belongs in the history.
+# ---------------------------------------------------------------------------
+
+# The cloned WSL distro (~11 GB ext4 image) holding the toolchain, the Python
+# virtualenv and the Ollama runtime. The lab installs inside the repository
+# folder, which makes this ignore essential rather than optional.
+wsl/
+
+# Junctions to the first lab's Ollama binary and GGUF weights, plus any other
+# third-party download. Shared rather than duplicated: the weights are ~2 GB.
+tools/
+
+# Recorded satellite passes pulled from the SatNOGS archive. Regenerate with
+# `make satnogs-fetch`; the observation IDs used are pinned in satnogs/manifest.json
+# so the download is reproducible.
+satnogs/captures/
+
+# Simulation output: channel time series, KPM stores, run logs, RL checkpoints,
+# Vivado project directories. Regenerate with the Makefile targets.
+data/
+accel/rtl/sim_build/
+accel/rtl/vivado/
+*.jou
+*.log
+!eval/figures/*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# CUDA build output
+accel/cuda/build/
+*.o
+*.so
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini

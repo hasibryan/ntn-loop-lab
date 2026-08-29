@@ -1,0 +1,46 @@
+# Python dependencies for the NTN loop lab.
+#
+# Install inside the cloned distro's virtualenv:
+#   /opt/ntnlab/venv/bin/pip install -r /mnt/d/ntn-loop-lab/requirements.txt
+#
+# Kept small on purpose. This machine has 7.9 GB of RAM shared between a 5G
+# stack, a simulator and a language model; an unused dependency is not free.
+
+# -- numerics, plotting -----------------------------------------------------
+numpy>=1.26
+scipy>=1.11          # fractional-delay filters, Cholesky, carrier tracking
+matplotlib>=3.8
+pandas>=2.1
+
+# -- orbital mechanics ------------------------------------------------------
+# skyfield wraps sgp4 with the time and frame handling that turns a TLE into
+# elevation, slant range and range-rate for a fixed ground station.
+skyfield>=1.49
+sgp4>=2.23
+
+# -- real capture -----------------------------------------------------------
+requests>=2.31       # SatNOGS DB and Network REST APIs
+soundfile>=0.12      # the archive serves demodulated audio as OGG/WAV
+
+# -- reinforcement learning -------------------------------------------------
+# CPU-only torch. The GPU in this machine is a GeForce 930MX (compute 5.0);
+# recent torch wheels no longer ship sm_50 kernels, so the CUDA work in this
+# repository is hand-written and compiled with nvcc, not routed through torch.
+torch>=2.2
+gymnasium>=0.29
+stable-baselines3>=2.3
+
+# -- hardware verification --------------------------------------------------
+cocotb>=1.8          # drives the Verilog testbenches against Verilator
+pytest>=8.0
+
+# -- the LLM side -----------------------------------------------------------
+langchain-core>=0.3.0
+langchain-ollama>=0.3.0
+langgraph>=0.2.0
+jsonschema>=4.21     # validates every A1 policy the model emits
+pydantic>=2.6
+
+# -- plumbing ---------------------------------------------------------------
+pyzmq>=25.1          # the NTN impairment shim sits between srsRAN's ZMQ ports
+rich>=13.7
