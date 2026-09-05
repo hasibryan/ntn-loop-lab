@@ -13,21 +13,53 @@ Not a survey, not a demo reel. One question, measured end to end, with the failu
 
 ## Status
 
-**Paused at day 2 of 14, on 2026-08-28.** The physics and the antenna are done and tested; the
-link, the silicon and the control loops are not. 29 tests pass. Everything below is reproducible
-with `make orbit` and `make antenna`, and the results in this README stand as measured.
+**Day 3 of 14 done, on 2026-09-05.** The physics, the antenna and the validation against real
+recorded passes are done and tested; the link, the silicon and the control loops are not.
+42 tests pass. Everything below is reproducible with `make orbit`, `make antenna`,
+`make satnogs-fetch` and `make doppler-fit`, and the results in this README stand as measured.
 
-The work stopped for a reason worth stating plainly. Days 4 onward put a control loop over a
-Near-RT RIC, and the RIC this plan reached for was the self-built one from the first lab —
-newline-delimited JSON over TCP, not ASN.1 APER over SCTP. A timescale map whose millisecond
-tier is measured on an emulated E2 interface measures the emulator. So the E2 interface is being
-built for real first, in a separate repository:
+Days 8 to 11 remain deliberately blocked. They put a control loop over a Near-RT RIC, and the
+RIC this plan reached for was the self-built one from the first lab — newline-delimited JSON
+over TCP, not ASN.1 APER over SCTP. A timescale map whose millisecond tier is measured on an
+emulated E2 interface measures the emulator. So the E2 interface is being built for real first,
+in a separate repository:
 
 **[`oran-kpm-guard`](https://github.com/hasibryan/oran-kpm-guard)** — a degradation-detector xApp on the OSC Near-RT RIC
 (`i-release`) with a srsRAN Project gNB and Open5GS over ZMQ, plus a released labelled dataset of
 KPM traces under injected faults. It is this project's prerequisite, not its replacement: days 8
 to 13 here are strictly stronger rebuilt on a real E2 interface, and the day-1 and day-2 numbers
-below are what they will be measured against when this resumes.
+below are what they will be measured against when they resume.
+
+Days 4 to 7 — the link, the delay sweep, the RTL and the CUDA kernel — are not blocked by it and
+are the next work.
+
+### The model holds against a satellite this lab did not record
+
+Four SatNOGS passes are pinned by observation ID in [satnogs/manifest.json](satnogs/manifest.json),
+each with the TLE its ground station held at capture time. The pre-flight measurement overturned
+the plan's assumption before any figure was drawn: **the stations correct Doppler at the receiver
+before archiving.** The carrier in the audio never sweeps, where an uncorrected 437 MHz LEO
+carrier would sweep ±10 kHz.
+
+That makes the test stricter, not weaker. Both sides propagate the same TLE with SGP4, so a
+correct model predicts a *flat* residual and every Hz of structure in it is real disagreement
+between two independent implementations.
+
+**Residual RMS 14.4 Hz and 39.1 Hz on the two captures where the measurement is well posed.**
+The larger is 0.39 % of the 9.9 kHz Doppler the station removed, and 6.5 Hz — 0.066 % — is what
+remains once the beacon's own oscillator drift is accounted for.
+
+The other two captures are **reported as not measurable, not tuned into a number.** Both come
+from one station whose recordings carry a second strong signal, and their residual RMS scales
+linearly with the width of the carrier-selection window — the narrow window would have given
+26 Hz, a *better*-looking number than either accepted capture. A result that moves with a knob
+is a fact about the knob, and the window-ratio test that rejects it is now automatic
+([tasks/lessons.md](tasks/lessons.md) 5.6).
+
+Two mistakes were paid for on the way and are written up in
+[Mistakes.md](Mistakes.md) and [tasks/lessons.md](tasks/lessons.md): a tracker that followed
+noise and reported 262–502 Hz before the model was ever at fault, and a residual fit whose
+missing drift term reappeared as a +5129 ppm Doppler-scale error that was not there.
 
 ### The first result, and it is not the one the plan expected
 
@@ -70,7 +102,12 @@ and the two beamformer bugs found on the way, are written up in
 [tasks/lessons.md](tasks/lessons.md).
 
 The plan, its acceptance criteria, its cut list and its risk register are in
-[tasks/todo.md](tasks/todo.md).
+[tasks/todo.md](tasks/todo.md). Open defects and rejected results are in
+[Mistakes.md](Mistakes.md); what changed upstream and whether it moves the plan is in
+[tasks/research-log.md](tasks/research-log.md). Five agent definitions in
+[.claude/agents/](.claude/agents/) carry the failure classes this repository has already paid
+for, so the remaining eleven days are reviewed by something other than the context that wrote
+them.
 
 ---
 
@@ -92,7 +129,7 @@ it is a measured statement about where O-RAN's functional split has to change fo
 |---|---|---|---|
 | Physics | — | SGP4 pass profile, TR 38.811 channel, required-loop-period derivation | [orbit/](orbit/) |
 | Antenna | — | 8x8 URA, hybrid 64x4, 6-bit quantised phase, adjacent-beam interference | [antenna/](antenna/) |
-| Validation | — | real LEO passes from the SatNOGS archive, carrier tracked, fitted against SGP4 | [satnogs/](satnogs/) |
+| Validation | — | four real LEO passes from the SatNOGS archive, carrier tracked, fitted against SGP4 | [satnogs/](satnogs/) |
 | Link | — | srsRAN Project + Open5GS over ZMQ, through a Doppler and fractional-delay shim | [ranlink/](ranlink/) |
 | L1, microseconds | set by CFO tolerance | CORDIC NCO and beamformer in RTL; batched Cholesky MMSE in CUDA | [accel/](accel/) |
 | Near-RT, milliseconds | set by link-margin collapse | PPO xApp for beam and satellite selection over E2 | [xapp/](xapp/) |
@@ -125,6 +162,11 @@ wsl -d ntn-lab
 cd /mnt/d/ntn-loop-lab
 make doctor          # toolchain, distro, GPU, Ollama, disk
 make help            # every stage of the plan, one target each
+
+make orbit           # day 1
+make antenna         # day 2
+make satnogs-fetch   # day 3, downloads the four pinned captures (~11 MB)
+make doppler-fit     # day 3, the validation above and Figure 4
 ```
 
 The lab lives inside a WSL2 distro cloned from the first lab's, stored in `wsl/` and ignored

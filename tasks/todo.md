@@ -136,13 +136,14 @@ Results, and two of them contradict what the plan assumed:
 - [ ] Optional and free: register with SatNOGS Network and **schedule an observation on a
       volunteer ground station**, then use your own resulting recording. This is the closest
       thing to operating a station that costs nothing, and it is worth a sentence in the paper.
-- [ ] `satnogs/doppler_fit.py`: track the carrier (FFT peak with sub-bin interpolation),
+- [x] `satnogs/doppler_fit.py`: track the carrier (FFT peak with sub-bin interpolation),
       produce measured Doppler against time, compare with the SGP4 prediction from day 1.
-- [ ] Report **RMS error in Hz** and the residual's structure. A receiver clock offset shows as
+- [x] Report **RMS error in Hz** and the residual's structure. A receiver clock offset shows as
       a constant; a stale TLE shows as a time shift; neither should be hidden.
-- [ ] Artefact: Figure 4, measured against predicted Doppler.
-- **Done when** the day-1 model is validated on data this lab did not generate. This figure is
-  the credibility anchor of the whole repository.
+- [x] Artefact: Figure 4, `eval/figures/fig4_doppler_validation.png`. Day 5's artefact moves to
+      Figure 5: day 2 already owns fig3.
+- **Done.** The day-1 model is validated on data this lab did not generate, on two of the four
+  pinned captures, with the other two reported as not measurable rather than tuned.
 
 #### What the pre-flight found, and what it changes
 
@@ -177,6 +178,49 @@ a1 is a fractional scale error, and a2 is an effective time shift in seconds.
 If 2 fails while 1 holds, the tracker is the first suspect, not the orbital model
 (`lessons.md` 4.3).
 
+#### What was measured, 2026-09-05
+
+Two of the four captures give a measurement that does not depend on the carrier-selection
+window. The other two, both from `berlin_ma_sat`, carry a second strong signal in the band that
+this tracker cannot separate, so their residual RMS scales with the window width and is
+reported as **not measurable** rather than tuned into a number.
+
+| | SEEDS, obs 14917886 | KKS-1, obs 14915752 |
+|---|---|---|
+| peak elevation | 76.7 deg | 76.4 deg |
+| TLE age at capture | 9.5 h | 8.2 h |
+| frames tracked | 497 | 1172 |
+| constant offset a0 | 328.5 Hz | 1591.9 Hz |
+| beacon drift a3 | -0.727 Hz/s | -0.349 Hz/s |
+| time shift a2 | +0.09 s | +0.13 s |
+| **residual RMS** | **14.4 Hz** | **39.1 Hz** |
+| unexplained after the fit | 4.0 Hz | 6.5 Hz |
+
+**The headline: 39.1 Hz RMS is 0.39 % of the 9.9 kHz Doppler the station removed, and 6.5 Hz
+— 0.066 % — is left once the beacon's own oscillator drift is accounted for.** Two independent
+SGP4 implementations, propagating the same TLE, on a pass this lab did not record, agree to
+better than a part in a thousand of the shift itself.
+
+Against the predictions:
+
+1. **Holds.** a0 is 329 Hz and 1592 Hz — hundreds of Hz to a couple of kHz, as predicted, and
+   not a model error.
+2. **Holds, on the captures where the measurement is well posed.** 14.4 and 39.1 Hz, both
+   under the predicted 100 Hz. It failed at 262 to 502 Hz on the first run, and prediction 2's
+   own escape clause was right about why: the tracker, not the model.
+3. **Fails, low.** Predicted 0.1 to 1 s of time shift; measured 0.09 s and 0.13 s. The stations
+   update their Doppler correction faster than assumed.
+4. **Holds, but not for the reason predicted, and the fit had to be corrected before it did.**
+   See `Mistakes.md` #4 and `lessons.md` 5.5: fitted without a linear-in-time term, KKS-1
+   returned +5129 ppm of Doppler-scale error. That term was the beacon oscillator warming up.
+   With the drift term present the scale is small — and the two are correlated at -0.96 over a
+   single pass, so the split is reported as not separable rather than as a number.
+5. **Holds for SEEDS, fails for KKS-1.** SEEDS's residual has its extremum at closest approach;
+   KKS-1's is monotone across the pass, because the oscillator drift dominates it.
+
+Still open, and worth a second capture rather than a fix: nothing here separates the ground
+station's clock from the beacon's transmit frequency. Both land in a0.
+
 ### Day 4 — the link, and the shim that impairs it
 
 - [ ] srsRAN Project gNB + Open5GS + srsUE over ZMQ inside `ntn-lab`. 10 MHz, logging low.
@@ -196,7 +240,7 @@ If 2 fails while 1 holds, the tracker is the first suspect, not the orbital mode
       stalls beyond roughly 8 ms round trip at 30 kHz SCS (16 processes x 0.5 ms slots) but
       survives to roughly 16 ms at 15 kHz.
 - [ ] Record the **exact srsRAN log line** at each failure. Quote it in the paper.
-- [ ] Artefact: Figure 4 — attach success rate and throughput against one-way delay, annotated
+- [ ] Artefact: Figure 5 — attach success rate and throughput against one-way delay, annotated
       with the Rel-17 mechanism (K_offset, ephemeris-assisted common TA) that exists precisely
       to fix what is being observed.
 - **Done when** there is a delay value with a failure mode and a log line attached to it.

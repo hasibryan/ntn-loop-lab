@@ -195,6 +195,45 @@ point value.
 `array/` shadowed Python's built-in `array` module and `python -m array.beams` failed with
 `__path__ attribute not found`. Renamed to `antenna/`.
 
+### 5.5 A missing term does not vanish; it reappears inside another one
+
+Day 3 fitted the residual between this lab's Doppler prediction and a SatNOGS station's own
+correction as `a0 + a1 * doppler + a2 * doppler_rate` — a constant, a scale error and a time
+shift. On KKS-1 it returned **a1 = +5129 ppm**: half a percent of disagreement between two SGP4
+implementations propagating the same TLE. That would have been a real finding if it were true.
+
+It was not there. The beacon's oscillator was drifting as it warmed through the pass, at
+-0.35 Hz/s, and the model had no term for a drift. Over a single pass the Doppler curve is close
+enough to linear in time that the scale term could absorb it, so it did. Fitting a plain linear
+drift *instead* explained the same residual better — 6.7 Hz unexplained against 13.3 Hz — and
+with both terms present the scale collapsed to -680 ppm.
+
+The dangerous part is not the error. It is that +5129 ppm is small enough to look like a
+plausible model discrepancy rather than an artefact, so it would have been written down.
+
+The two terms remain correlated at -0.96 over one pass, so the fit now reports the split as
+**not separable** rather than reporting a number for it. That is 5.2's rule again: where a
+result rests on a distinction the data cannot make, say it cannot be made.
+
+**Rule:** before believing a fitted coefficient, fit the competing explanation on its own and
+see which one wins, then fit both and see whether the first survives. A term that has nowhere
+to go goes somewhere.
+
+### 5.6 If the answer moves with the knob, it is a fact about the knob
+
+Two of the four day-3 captures came from a station whose recordings carry a second strong
+signal. Selecting the beacon needs a frequency window around it, and for those two the residual
+RMS scaled linearly with the window width: 26 Hz at +/-150 Hz, 124 Hz at +/-400 Hz. Any single
+number quoted would have described the window.
+
+There was a tempting number available — the narrow window gives 26 Hz, which is *better* than
+the two good captures and would have made day 3 look stronger. Reported as **not measurable**
+instead, with the mechanism, and the window-ratio test is now automatic: a capture is rejected
+unless RMS at the wide and narrow windows agrees within 50 %.
+
+**Rule:** every selection parameter gets swept before its result is quoted. If the result moves
+with it, there is no result -- and the direction it moves is not a reason to pick a value.
+
 ---
 
 ## 6. What days 1 and 2 actually found
@@ -318,3 +357,30 @@ other people's software does are hypotheses with a shelf life, and they are chea
 the day the repository is first cloned. This one was free — it fell out of a clone made for
 another project — and it would have cost a day of building an experiment around an absence that
 was not there.
+
+---
+
+## 8. What day 3 found
+
+### 8.1 The archive had already solved the problem the plan came to measure
+
+Day 3 was planned as: track the raw carrier in a recorded pass, compare against SGP4, report
+RMS error in Hz. The plan assumed the archived audio carries the raw carrier.
+
+It does not. Measured on all four captures before anything was fitted, the carrier sits between
+roughly 300 Hz and 3 kHz of audio and never sweeps, where an uncorrected 437 MHz LEO carrier
+would sweep about +/-10 kHz and 48 kHz audio has ample room to show it. SatNOGS stations apply
+Doppler correction at the receiver before archiving.
+
+That makes day 3 a *stricter* test than the one planned, not a weaker one. Both sides propagate
+the same TLE — the one the station held at capture, saved alongside the audio — with SGP4, so a
+correct model predicts a flat residual and every Hz of structure in it is real disagreement
+between two independent implementations.
+
+**Measured, on the two captures where the measurement is well posed:** residual RMS 14.4 Hz
+(SEEDS, 76.7 deg peak) and 39.1 Hz (KKS-1, 76.4 deg peak). The larger of those is **0.39 % of
+the 9.9 kHz Doppler the station removed**, falling to 6.5 Hz — 0.066 % — once the beacon's own
+oscillator drift is accounted for.
+
+**Rule, and it is 7.1 wearing different clothes:** check what the data has already had done to
+it before designing a measurement around what you assume it is. The check cost one FFT.
