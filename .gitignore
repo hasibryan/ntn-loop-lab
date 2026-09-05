@@ -43,3 +43,8 @@ accel/cuda/build/
 *.swp
 Thumbs.db
 desktop.ini
+
+# Knowledge graph built by /graphify. Regenerable: `graphify .` rebuilds it, and
+# the interactive HTML is large. The report and the JSON are derived from the
+# tracked source, so neither belongs in the history.
+graphify-out/

@@ -23,7 +23,7 @@ newline-delimited JSON over TCP, not ASN.1 APER over SCTP. A timescale map whose
 tier is measured on an emulated E2 interface measures the emulator. So the E2 interface is being
 built for real first, in a separate repository:
 
-**[`oran-kpm-guard`](../oran-kpm-guard)** — a degradation-detector xApp on the OSC Near-RT RIC
+**[`oran-kpm-guard`](https://github.com/hasibryan/oran-kpm-guard)** — a degradation-detector xApp on the OSC Near-RT RIC
 (`i-release`) with a srsRAN Project gNB and Open5GS over ZMQ, plus a released labelled dataset of
 KPM traces under injected faults. It is this project's prerequisite, not its replacement: days 8
 to 13 here are strictly stronger rebuilt on a real E2 interface, and the day-1 and day-2 numbers
@@ -133,6 +133,6 @@ directory junction rather than duplicated. Nothing installs outside this folder.
 
 ## Related work by the same author
 
-[O-RAN Mini-Lab](../LLM_Learning) — a five-cell LTE network, an E2 interface, and a 3B
+[O-RAN Mini-Lab](https://github.com/hasibryan/LLM-Learning) — a five-cell LTE network, an E2 interface, and a 3B
 language-model agent that fixes congestion, together with the sixteen-lesson curriculum that
 builds it. Its mini-RIC is this project's documented fallback if FlexRIC does not cooperate.
