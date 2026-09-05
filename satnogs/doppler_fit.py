@@ -207,6 +207,21 @@ WINDOW_WIDE_HZ = 400.0
 WINDOW_NARROW_HZ = 150.0
 WELL_POSED_MAX_RATIO = 1.5
 
+# The ratio above is a weak test, and the 2026-09-06 review said so: on both
+# accepted captures the narrow window drops 0 and 1 of 497 and 1173 frames, so the
+# ratio is pinned at exactly 1.000 and the test is null on precisely the captures
+# it accepts. The direct measurement is how far the surviving population reaches
+# towards the edge of the window it was given. Measured: 0.13 and 0.35 on the two
+# accepted captures against 1.00 and 1.00 on the two rejected ones -- a population
+# that saturates its window is being cut by the window, and widening it would admit
+# more. Nothing was measured between 0.35 and 0.99, so the threshold below is a
+# midpoint in an untested gap and is reported as such, not defended as tuned.
+WINDOW_SATURATED_FILL = 0.75
+
+# The SNR gate keeps only frames whose peak stands this far above the in-band median.
+# It is a knob, so it is swept and its range reported rather than quoted at one value.
+SNR_GATE_SWEEP_DB = (10.0, 15.0, 20.0, 25.0)
+
 
 # --------------------------------------------------------------------------- #
 # Residual decomposition
@@ -241,8 +256,20 @@ def decompose_residual(resid_hz: np.ndarray, doppler_hz_: np.ndarray,
     a0, a1, a2, a3 = coef / scale
     unexplained = resid_hz - A @ np.array([a0, a1, a2, a3])
 
+    # The same fit without the Doppler-scale column. Where scale and drift are not
+    # separable, a1 and a3 are free to grow large and opposite and shrink the residual
+    # between them -- on SEEDS the two terms swing 119 Hz and 170 Hz over a 234 s span
+    # to explain a 14.4 Hz residual, with estimator correlation +0.970. This is what
+    # "unexplained once the beacon's drift is accounted for" actually means, so it is
+    # reported next to the four-term number rather than instead of it.
+    A3 = np.column_stack([np.ones_like(resid_hz), doppler_rate_hz_s, t_s])
+    s3 = np.array([1.0, *[max(np.abs(col).max(), 1e-12) for col in A3.T[1:]]])
+    c3, *_ = np.linalg.lstsq(A3 / s3, resid_hz, rcond=None)
+    unexplained_drift_only = resid_hz - A3 @ (c3 / s3)
+
     corr = float(np.corrcoef(doppler_hz_, t_s)[0, 1])
     return {
+        "rms_unexplained_drift_only_hz": float(np.sqrt(np.mean(unexplained_drift_only ** 2))),
         "offset_hz": float(a0),
         "scale_fractional": float(a1),
         "time_shift_s": float(a2),
@@ -263,8 +290,27 @@ def _utc(s: str) -> datetime:
     return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc)
 
 
-def analyse(entry: dict, captures: Path = CAPTURES, dt_s: float = 0.1) -> dict:
-    """Track one capture's carrier and compare it against the SGP4 prediction."""
+def analyse(entry: dict, captures: Path = CAPTURES, dt_s: float = 0.1,
+            snr_gate_db: float = 15.0) -> dict:
+    """Track one capture's carrier and fit the residual left after the station's
+    own Doppler correction.
+
+    What this does NOT do, stated here because the first version of day 3 claimed
+    otherwise in its README. The station removed Doppler at the receiver using the
+    same TLE, so the audio carries ``D_true - D_station`` and this lab's own model
+    enters only as two columns of the design matrix. Rescaling ``doppler_hz`` by any
+    factor -- including -1 -- leaves ``rms_about_mean_hz`` and ``rms_unexplained_hz``
+    bit-identical, because ``span{1, k*d, k*d', t}`` does not depend on ``k``. So
+    the numbers below bound how far SGP4-on-a-fresh-TLE sits from the real satellite,
+    which is a real result, and they do not discriminate a correct day-1 model from a
+    wrong one. ``tests/test_satnogs.py`` pins that invariance so the claim cannot
+    quietly come back. Validating the model itself needs a capture from a station
+    that does not Doppler-correct before archiving.
+
+    ``snr_gate_db`` is swept by ``main`` rather than quoted: the reported RMS moves
+    with it (KKS-1 gives 43.4 Hz at 10 dB and 16.0 Hz at 25 dB), so a single value
+    would be a fact about the gate.
+    """
     import soundfile as sf
 
     obs_id = entry["id"]
@@ -278,7 +324,7 @@ def analyse(entry: dict, captures: Path = CAPTURES, dt_s: float = 0.1) -> dict:
     x = x[:, 0]
 
     band = coarse_carrier_band(x, fs)
-    t_all, f_all, snr_all = track_carrier(x, fs, band_hz=band)
+    t_all, f_all, snr_all = track_carrier(x, fs, band_hz=band, snr_gate_db=snr_gate_db)
     if len(t_all) < 32:
         raise ValueError(
             f"observation {obs_id}: only {len(t_all)} frames passed the SNR gate. "
@@ -290,13 +336,18 @@ def analyse(entry: dict, captures: Path = CAPTURES, dt_s: float = 0.1) -> dict:
     rms_wide = float(np.std(f_all[wide]))
     rms_narrow = float(np.std(f_all[narrow])) if narrow.sum() > 8 else float("nan")
     window_ratio = rms_wide / rms_narrow if rms_narrow > 0 else float("inf")
-    well_posed = bool(window_ratio <= WELL_POSED_MAX_RATIO)
 
     # Report from the widest window: it is the least restrictive selection, so a
     # number that survives it is not an artefact of narrowing.
     t_audio, f_audio, snr = t_all[wide], f_all[wide], snr_all[wide]
     centre = stationary_mode_hz(f_all)
     window_fill = float(max(f_audio.max() - centre, centre - f_audio.min()) / WINDOW_WIDE_HZ)
+    # Either failure is disqualifying, and they are not redundant: the fill test is
+    # the one that discriminates on these four captures, the ratio test is the one
+    # that would catch a population that stays inside the window but is still made
+    # of two signals.
+    well_posed = bool(window_fill < WINDOW_SATURATED_FILL
+                      and window_ratio <= WELL_POSED_MAX_RATIO)
 
     # The audio file starts when the observation starts. Propagate the same TLE the
     # station used over exactly the observation window.
@@ -326,11 +377,14 @@ def analyse(entry: dict, captures: Path = CAPTURES, dt_s: float = 0.1) -> dict:
     # reported separately as a0 because it is not a model error.
     resid = f_audio - f_audio.mean()
     parts = decompose_residual(resid, d_pred, rate_pred, t_audio)
-    parts["offset_hz"] = float(f_audio.mean())  # the real constant, not the de-meaned zero
 
     # A tuning offset the station recorded on purpose is a known constant, not a
-    # mystery: subtract it before attributing anything to the beacon.
+    # mystery: subtract it before attributing anything to the beacon. ``offset_hz``
+    # stays the fit's own a0 -- near zero by construction, since the residual is
+    # de-meaned before the fit -- and the constant is reported under its own names,
+    # which is what the 2026-09-06 review found was not true of the first version.
     tuned_off_hz = float(entry.get("observation_frequency_hz", fc)) - fc
+    carrier_mean_hz = float(f_audio.mean())
 
     return {
         "observation_id": obs_id,
@@ -340,6 +394,9 @@ def analyse(entry: dict, captures: Path = CAPTURES, dt_s: float = 0.1) -> dict:
         "max_elevation_deg": float(sat_pass.max_elevation_deg),
         "nominal_downlink_hz": fc,
         "station_tuning_offset_hz": tuned_off_hz,
+        "carrier_mean_hz": carrier_mean_hz,
+        "beacon_offset_hz": carrier_mean_hz - tuned_off_hz,
+        "snr_gate_db": float(snr_gate_db),
         "tle_epoch_age_h": _tle_age_hours(tle_path, meta["start"]),
         "n_frames_detected": int(len(t_all)),
         "n_frames_tracked": int(len(t_audio)),
@@ -348,8 +405,9 @@ def analyse(entry: dict, captures: Path = CAPTURES, dt_s: float = 0.1) -> dict:
         "window_rms_ratio": float(window_ratio),
         "window_fill_fraction": window_fill,
         "rejection_reason": None if well_posed else (
-            f"residual RMS scales with the selection window "
-            f"({rms_narrow:.1f} Hz at +/-{WINDOW_NARROW_HZ:.0f} Hz, "
+            f"the surviving carrier population fills {100*window_fill:.0f} % of the "
+            f"+/-{WINDOW_WIDE_HZ:.0f} Hz selection window, and its RMS scales with that "
+            f"window ({rms_narrow:.1f} Hz at +/-{WINDOW_NARROW_HZ:.0f} Hz, "
             f"{rms_wide:.1f} Hz at +/-{WINDOW_WIDE_HZ:.0f} Hz, ratio {window_ratio:.2f}). "
             "A second signal is present in the band and this tracker cannot separate it, "
             "so any RMS quoted would be a fact about the window, not about the model."
@@ -415,7 +473,9 @@ def figure_4(results: list[dict]) -> Path:
         order = np.argsort(s["t_s"])
         bot.plot(s["t_s"][order], (fit - fit.mean())[order], lw=1.4, color="#2ca02c",
                  label=f"fit: {r['beacon_drift_hz_s']:+.3f} Hz/s drift, "
-                       f"{r['time_shift_s']:+.2f} s shift")
+                       f"{r['time_shift_s']:+.2f} s shift, "
+                       f"{r['scale_fractional']*1e6:+.0f} ppm scale"
+                       + ("" if r["scale_separable"] else " (not separable)"))
         bot.axhline(0.0, lw=0.6, color="0.7")
         bot.set_xlabel("time from observation start (s)")
         bot.set_ylabel("residual after station\nDoppler correction (Hz)" if col == 0 else "")
@@ -456,6 +516,7 @@ def main() -> None:
     args = ap.parse_args()
 
     manifest = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+    entries = {e["id"]: e for e in manifest["observations"]}
     results = []
     for entry in manifest["observations"]:
         print(f"tracking {entry['satellite']} (obs {entry['id']}) ...", flush=True)
@@ -473,13 +534,14 @@ def main() -> None:
         print(f"{r['satellite'][:15]:<16}{r['observation_id']:>10}"
               f"{r['max_elevation_deg']:>8.1f}d{r['tle_epoch_age_h']:>8.1f}h"
               f"{r['n_frames_tracked']:>8}"
-              f"{r['offset_hz']:>10.1f}Hz{r['beacon_drift_hz_s']:>7.3f}Hz/s"
+              f"{r['carrier_mean_hz']:>10.1f}Hz{r['beacon_drift_hz_s']:>7.3f}Hz/s"
               f"{r['time_shift_s']:>8.2f}s{r['rms_about_mean_hz']:>8.1f}Hz"
               f"{r['rms_unexplained_hz']:>8.1f}Hz{r['window_rms_ratio']:>7.2f}{mark}")
-    print("\ndrift is the beacon oscillator's own linear drift; RMS is about the mean;\n"
-          "unexplained is what the four-term fit does not account for; win is the RMS ratio\n"
-          f"between the wide and narrow selection windows (well posed at or below "
-          f"{WELL_POSED_MAX_RATIO}).")
+    print("\noffset is the mean audio carrier; drift is the beacon oscillator's own linear\n"
+          "drift; RMS is about the mean; unexplained is what the four-term fit does not\n"
+          "account for; win is the RMS ratio between the wide and narrow selection windows.\n"
+          f"Well posed needs window fill below {WINDOW_SATURATED_FILL} and ratio at or "
+          f"below {WELL_POSED_MAX_RATIO}.")
     for r in results:
         if r["well_posed"] and not r["scale_separable"]:
             print(f"  {r['satellite']}: the Doppler-scale and beacon-drift terms are not "
@@ -491,15 +553,40 @@ def main() -> None:
               f"  {r['rejection_reason']}")
 
     if good:
-        rms = [r["rms_about_mean_hz"] for r in good]
-        peak = max(r["predicted_peak_doppler_hz"] for r in good)
-        unexp = [r["rms_unexplained_hz"] for r in good]
-        print(f"\n{len(good)} of {len(results)} captures give a well-posed measurement. "
-              f"Residual RMS {min(rms):.1f} to {max(rms):.1f} Hz, which is "
-              f"{100*max(rms)/peak:.2f} % of the {peak/1e3:.1f} kHz Doppler the station "
-              f"removed; {min(unexp):.1f} to {max(unexp):.1f} Hz "
-              f"({100*max(unexp)/peak:.3f} %) remains once the beacon's own drift is "
-              f"accounted for.")
+        print(f"\n{len(good)} of {len(results)} captures give a well-posed measurement.")
+        for r in good:
+            # Each capture against its own peak Doppler. The first version divided the
+            # largest RMS by the largest peak across captures, which happened to pick
+            # the same capture for both and so happened to be right.
+            pk = r["predicted_peak_doppler_hz"]
+            print(f"  {r['satellite']:<16} RMS {r['rms_about_mean_hz']:6.1f} Hz "
+                  f"= {100*r['rms_about_mean_hz']/pk:.2f} % of its own {pk/1e3:.1f} kHz "
+                  f"peak Doppler; {r['rms_unexplained_hz']:.1f} Hz "
+                  f"({100*r['rms_unexplained_hz']/pk:.3f} %) unexplained by the four-term fit, "
+                  f"{r['rms_unexplained_drift_only_hz']:.1f} Hz with the non-separable "
+                  f"Doppler-scale term dropped.")
+
+        # Lesson 5.6, applied to the knob that was never swept. The gate was set at
+        # 15 dB while chasing a tracker bug and then quoted as if it were physics.
+        print("\nSensitivity of the RMS to the SNR gate (a knob, so it gets swept):")
+        for r in good:
+            row = []
+            for g in SNR_GATE_SWEEP_DB:
+                try:
+                    row.append((g, analyse(entries[r["observation_id"]],
+                                           snr_gate_db=g)["rms_about_mean_hz"]))
+                except ValueError:
+                    row.append((g, None))
+            cells = "  ".join(f"{g:.0f} dB: " + ("too few frames" if v is None else f"{v:5.1f} Hz")
+                              for g, v in row)
+            print(f"  {r['satellite']:<16} {cells}")
+        print("  The RMS is therefore a range, not a point value, and the range is the result.")
+
+        print("\nWhat this does and does not establish. The station removed Doppler before\n"
+              "archiving, so these numbers bound how far SGP4 on a fresh TLE sits from the\n"
+              "real satellite. They do NOT test this lab's own Doppler model: rescaling it,\n"
+              "even by -1, leaves every number above unchanged. That validation needs a\n"
+              "capture from a station that does not correct before archiving.")
     else:
         print("\nNo capture gave a well-posed measurement. Day 3 is not validated.")
 

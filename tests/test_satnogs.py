@@ -98,6 +98,39 @@ def test_selection_keeps_the_stationary_line_and_drops_the_sweeping_one():
     assert kept.max() - kept.min() < 250.0   # the 4 kHz sweep does not
 
 
+def test_a_contaminated_band_saturates_its_selection_window_and_a_clean_one_does_not():
+    """The discriminator that replaced the window-ratio test on 2026-09-06.
+
+    The ratio test was pinned at exactly 1.000 on both accepted captures -- it was
+    null on the very captures it accepted. What actually separates them is how far
+    the surviving population reaches towards the edge of the window it was given:
+    measured 0.13 and 0.35 on the accepted pair against 1.00 and 1.00 on the
+    rejected pair. A population that saturates its window is being cut by the
+    window, so widening it would admit more.
+
+    Modelled as a coherent second line, not as noise: the median continuity filter
+    already drops scattered picks, and what defeats it is a strong neighbour that
+    moves smoothly enough to look like a track.
+    """
+    window = 400.0
+    rng = np.random.default_rng(3)
+    n = 600
+    t = np.linspace(0.0, 1.0, n)
+    clean = 1500.0 + rng.normal(0.0, 15.0, n)            # a beacon and nothing else
+    # A second emitter sweeping through the band, tracked in alternating frames.
+    sweeper = 1500.0 + 900.0 * (t - 0.5)
+    contaminated = np.where(np.arange(n) % 2 == 0, clean, sweeper)
+
+    def fill(f):
+        keep = select_carrier(f, window_hz=window)
+        centre = stationary_mode_hz(f)
+        kept = f[keep]
+        return max(kept.max() - centre, centre - kept.min()) / window
+
+    assert fill(clean) < 0.75
+    assert fill(contaminated) >= 0.75
+
+
 def test_selection_drops_isolated_noise_picks():
     t = np.arange(300)
     rng = np.random.default_rng(2)
@@ -175,6 +208,30 @@ def test_decomposition_recovers_a_genuine_doppler_scale_error():
     resid = 0.004 * doppler
     got = decompose_residual(resid, doppler, rate, t)
     assert abs(got["scale_fractional"] - 0.004) < 5e-4
+
+
+def test_the_reported_rms_does_not_test_the_doppler_model():
+    """The null test day 3 shipped believing it was a validation.
+
+    The SatNOGS stations remove Doppler at the receiver, so the audio carries
+    ``D_true - D_station`` and this lab's model enters only as columns of the design
+    matrix. ``span{1, k*d, k*d', t}`` does not depend on ``k``, so both reported
+    numbers are invariant under any rescaling of the model -- including a sign flip,
+    which is as wrong as a model can be. Verified on the real captures on
+    2026-09-06: RMS 14.367 / 39.064 Hz and unexplained 3.966 / 6.527 Hz were
+    bit-identical at x1.00, x1.10 and x-1.00.
+
+    This test exists so the README claim cannot quietly come back. If it ever fails,
+    something has made the fit sensitive to the model -- which would be good news,
+    and needs the surrounding prose rewritten to match.
+    """
+    t, doppler, rate = _synthetic_pass()
+    resid = 500.0 - 0.35 * t + 12.0 * np.sin(2 * np.pi * t / 137.0)
+    base = decompose_residual(resid, doppler, rate, t)
+    for k in (1.10, 0.5, -1.0):
+        got = decompose_residual(resid, k * doppler, k * rate, t)
+        assert got["rms_about_mean_hz"] == pytest.approx(base["rms_about_mean_hz"], rel=1e-12)
+        assert got["rms_unexplained_hz"] == pytest.approx(base["rms_unexplained_hz"], rel=1e-9)
 
 
 @pytest.mark.parametrize("planted", [-2.0, -0.5, 0.5, 2.0])

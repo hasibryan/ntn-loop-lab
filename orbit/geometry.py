@@ -288,5 +288,9 @@ def tle_pass(
         range_rate_ms=d_dot,
         altitude_m=float(semi_major - R_EARTH),
         source=f"tle:{name}",
-        epoch_utc=tt[i0].utc_iso(),
+        # places=6: the default rounds to whole seconds, which was measured at -0.3 s
+        # and +0.4 s against the exact sample time on the two day-3 captures -- larger
+        # than the sub-0.1 s time shifts day 3 reports, so the default quantisation sat
+        # inside the quantity being measured.
+        epoch_utc=tt[i0].utc_iso(places=6),
     )

@@ -196,25 +196,44 @@ reported as **not measurable** rather than tuned into a number.
 | **residual RMS** | **14.4 Hz** | **39.1 Hz** |
 | unexplained after the fit | 4.0 Hz | 6.5 Hz |
 
-**The headline: 39.1 Hz RMS is 0.39 % of the 9.9 kHz Doppler the station removed, and 6.5 Hz
-— 0.066 % — is left once the beacon's own oscillator drift is accounted for.** Two independent
-SGP4 implementations, propagating the same TLE, on a pass this lab did not record, agree to
-better than a part in a thousand of the shift itself.
+**This headline was wrong and was withdrawn on 2026-09-06.** It read: "39.1 Hz RMS is 0.39 % of
+the 9.9 kHz Doppler the station removed... two independent SGP4 implementations, propagating the
+same TLE, agree to better than a part in a thousand." The adversarial review (`Mistakes.md` row
+6, `lessons.md` 5.7) showed the numbers cannot support that: the station removed the Doppler, so
+this lab's model enters only as columns of the design matrix, and rescaling it by 1.10, 0.50 or
+**−1** leaves every number in the table bit-identical. Nothing here compares two implementations.
+
+**What replaces it, measured the same way:** SGP4 propagated from a TLE 8 to 10 hours old, run
+through someone else's receiver, leaves 13–15 Hz RMS (SEEDS) and 29–43 Hz RMS (KKS-1) — 0.15 %
+and 0.39 % of the ~10 kHz removed. Ranges, not point values, because the RMS moves with the
+tracker's SNR gate (`Mistakes.md` row 10). That is an upper bound on the lab-vs-station
+disagreement, and a genuine end-to-end number for TLE-age-limited SGP4 accuracy.
+
+**Validating the day-1 model needs a capture from a station that does not Doppler-correct before
+archiving.** That is open.
 
 Against the predictions:
 
 1. **Holds.** a0 is 329 Hz and 1592 Hz — hundreds of Hz to a couple of kHz, as predicted, and
    not a model error.
-2. **Holds, on the captures where the measurement is well posed.** 14.4 and 39.1 Hz, both
-   under the predicted 100 Hz. It failed at 262 to 502 Hz on the first run, and prediction 2's
-   own escape clause was right about why: the tracker, not the model.
+2. **Holds, on the captures where the measurement is well posed — but it was never at risk.**
+   14.4 and 39.1 Hz, both under the predicted 100 Hz. It failed at 262 to 502 Hz on the first
+   run, and prediction 2's own escape clause was right about why: the tracker, not the model.
+   Noted after the fact: this prediction was about the day-1 model and the measurement is
+   insensitive to it, so passing it is not evidence about the model.
 3. **Fails, low.** Predicted 0.1 to 1 s of time shift; measured 0.09 s and 0.13 s. The stations
    update their Doppler correction faster than assumed.
-4. **Holds, but not for the reason predicted, and the fit had to be corrected before it did.**
-   See `Mistakes.md` #4 and `lessons.md` 5.5: fitted without a linear-in-time term, KKS-1
-   returned +5129 ppm of Doppler-scale error. That term was the beacon oscillator warming up.
-   With the drift term present the scale is small — and the two are correlated at -0.96 over a
-   single pass, so the split is reported as not separable rather than as a number.
+4. **Fails. Corrected on 2026-09-06; the first verdict here read "Holds" and cited one capture.**
+   `Mistakes.md` #4 and `lessons.md` 5.5 record the first half: fitted without a linear-in-time
+   term, KKS-1 returned +5129 ppm of Doppler-scale error, which was the beacon oscillator
+   warming up. With the drift term present KKS-1 gives **−668 ppm** — but SEEDS gives
+   **−6329 ppm**, a factor of nine apart with non-overlapping error bars, and the first write-up
+   quoted only KKS-1. Scale and drift are correlated at −0.96 and −0.97 over a single pass, so
+   neither number is a claim; the disagreement between them is the evidence that `a1` is
+   measuring the fit's conditioning and not a property of the model. On SEEDS the two terms swing
+   119 Hz and 170 Hz to explain a 14.4 Hz residual, which is why the unexplained figure now
+   carries its drift-only companion: 4.0 Hz four-term against **9.2 Hz** with the non-separable
+   scale term dropped (KKS-1: 6.5 against 6.7, clean). `Mistakes.md` rows 7 and 8.
 5. **Holds for SEEDS, fails for KKS-1.** SEEDS's residual has its extremum at closest approach;
    KKS-1's is monotone across the pass, because the oscillator drift dominates it.
 

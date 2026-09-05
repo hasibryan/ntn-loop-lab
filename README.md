@@ -13,10 +13,11 @@ Not a survey, not a demo reel. One question, measured end to end, with the failu
 
 ## Status
 
-**Day 3 of 14 done, on 2026-09-05.** The physics, the antenna and the validation against real
-recorded passes are done and tested; the link, the silicon and the control loops are not.
-42 tests pass. Everything below is reproducible with `make orbit`, `make antenna`,
-`make satnogs-fetch` and `make doppler-fit`, and the results in this README stand as measured.
+**Day 3 of 14 done, on 2026-09-05; day-3 claims corrected on 2026-09-06 after adversarial
+review.** The physics, the antenna and a measurement against real recorded passes are done and
+tested; the link, the silicon and the control loops are not. 44 tests pass. Everything below is
+reproducible with `make orbit`, `make antenna`, `make satnogs-fetch` and `make doppler-fit`, and
+the results in this README stand as measured.
 
 Days 8 to 11 remain deliberately blocked. They put a control loop over a Near-RT RIC, and the
 RIC this plan reached for was the self-built one from the first lab — newline-delimited JSON
@@ -33,33 +34,47 @@ below are what they will be measured against when they resume.
 Days 4 to 7 — the link, the delay sweep, the RTL and the CUDA kernel — are not blocked by it and
 are the next work.
 
-### The model holds against a satellite this lab did not record
+### Day 3 measured a real bound, and did not measure what it first claimed to
 
-Four SatNOGS passes are pinned by observation ID in [satnogs/manifest.json](satnogs/manifest.json),
+Four SatNOGS passes are pinned by observation ID in
+[satnogs/manifest.json](https://github.com/hasibryan/ntn-loop-lab/blob/main/satnogs/manifest.json),
 each with the TLE its ground station held at capture time. The pre-flight measurement overturned
 the plan's assumption before any figure was drawn: **the stations correct Doppler at the receiver
 before archiving.** The carrier in the audio never sweeps, where an uncorrected 437 MHz LEO
 carrier would sweep ±10 kHz.
 
-That makes the test stricter, not weaker. Both sides propagate the same TLE with SGP4, so a
-correct model predicts a *flat* residual and every Hz of structure in it is real disagreement
-between two independent implementations.
+Day 3 was first written up as if that made the test *stricter*. It does not. The audio carries
+`D_true − D_station`; this lab's own model enters the fit only as columns of a design matrix
+whose span does not change when the model is rescaled. **Rescaling the day-1 Doppler model by
+1.10, by 0.50, or by −1 leaves every number below bit-identical.** The adversarial review that
+found this is [Mistakes.md](https://github.com/hasibryan/ntn-loop-lab/blob/main/Mistakes.md)
+row 6; the invariance is now pinned by a test so the claim cannot come back, and the rule is
+[tasks/lessons.md](https://github.com/hasibryan/ntn-loop-lab/blob/main/tasks/lessons.md) 5.7.
 
-**Residual RMS 14.4 Hz and 39.1 Hz on the two captures where the measurement is well posed.**
-The larger is 0.39 % of the 9.9 kHz Doppler the station removed, and 6.5 Hz — 0.066 % — is what
-remains once the beacon's own oscillator drift is accounted for.
+What the measurement does establish, which is real and worth having: **SGP4 propagated from a
+TLE a few hours old, run through a real receiver by someone else, leaves a residual of 13–15 Hz
+RMS (SEEDS, obs 14917886) and 29–43 Hz RMS (KKS-1, obs 14915752)** — 0.15 % and 0.39 % of the
+~10 kHz of Doppler the stations removed. Those are ranges because the RMS moves with the
+tracker's SNR gate, which is a knob and is therefore swept and reported rather than quoted at
+one value. It is an upper bound on how far this lab's prediction could sit from the station's,
+not a measurement of the difference.
 
 The other two captures are **reported as not measurable, not tuned into a number.** Both come
-from one station whose recordings carry a second strong signal, and their residual RMS scales
-linearly with the width of the carrier-selection window — the narrow window would have given
-26 Hz, a *better*-looking number than either accepted capture. A result that moves with a knob
-is a fact about the knob, and the window-ratio test that rejects it is now automatic
-([tasks/lessons.md](tasks/lessons.md) 5.6).
+from one station whose recordings carry a second strong signal. Their surviving carrier
+population fills 100 % of the ±400 Hz selection window against 13 % and 35 % for the accepted
+pair, and their RMS scales with that window — the narrow window would have given 26 Hz, a
+*better*-looking number than either accepted capture. A result that moves with a knob is a fact
+about the knob (lessons.md 5.6).
 
-Two mistakes were paid for on the way and are written up in
-[Mistakes.md](Mistakes.md) and [tasks/lessons.md](tasks/lessons.md): a tracker that followed
-noise and reported 262–502 Hz before the model was ever at fault, and a residual fit whose
-missing drift term reappeared as a +5129 ppm Doppler-scale error that was not there.
+Four mistakes were paid for and are written up in
+[Mistakes.md](https://github.com/hasibryan/ntn-loop-lab/blob/main/Mistakes.md): a tracker that
+followed noise and reported 262–502 Hz before the model was ever at fault; a residual fit whose
+missing drift term reappeared as a +5129 ppm Doppler-scale error that was not there; a
+well-posedness test that was itself a null test on the captures it accepted; and the headline
+claim above, which measured its own instrument rather than its model.
+
+**Validating the day-1 model against real data still needs a capture from a station that does
+not Doppler-correct before archiving.** That is open work, not a finished result.
 
 ### The first result, and it is not the one the plan expected
 

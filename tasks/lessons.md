@@ -372,15 +372,51 @@ roughly 300 Hz and 3 kHz of audio and never sweeps, where an uncorrected 437 MHz
 would sweep about +/-10 kHz and 48 kHz audio has ample room to show it. SatNOGS stations apply
 Doppler correction at the receiver before archiving.
 
-That makes day 3 a *stricter* test than the one planned, not a weaker one. Both sides propagate
-the same TLE — the one the station held at capture, saved alongside the audio — with SGP4, so a
-correct model predicts a flat residual and every Hz of structure in it is real disagreement
-between two independent implementations.
+Day 3 then concluded that this makes the test *stricter*, not weaker: both sides propagate the
+same TLE, so a correct model predicts a flat residual and every Hz of structure is real
+disagreement. **That conclusion was wrong and is corrected in 5.7 below.** It is kept here
+verbatim because the mistake is the more useful half of the lesson.
 
-**Measured, on the two captures where the measurement is well posed:** residual RMS 14.4 Hz
-(SEEDS, 76.7 deg peak) and 39.1 Hz (KKS-1, 76.4 deg peak). The larger of those is **0.39 % of
-the 9.9 kHz Doppler the station removed**, falling to 6.5 Hz — 0.066 % — once the beacon's own
-oscillator drift is accounted for.
+**Measured, on the two captures where the measurement is well posed:** residual RMS 13–15 Hz
+(SEEDS, 76.7 deg peak) and 29–43 Hz (KKS-1, 76.4 deg peak), across an SNR gate of 10 to 20 dB.
+The larger is **0.39 % of the 9.9 kHz Doppler the station removed**. It is an upper bound on
+this lab's disagreement with the station, and a real end-to-end number for how far SGP4 on an
+8-to-10-hour-old TLE sits from a satellite — it is not a test of the day-1 model.
 
 **Rule, and it is 7.1 wearing different clothes:** check what the data has already had done to
 it before designing a measurement around what you assume it is. The check cost one FFT.
+
+### 5.7 If the answer does not move when the model is wrong, the model was not tested
+
+*(numbered in section 5 with the other measurement-hygiene rules, and cross-referenced from 8.1)*
+
+The corrected version of 8.1. Once the station has removed the Doppler, the audio carries
+`D_true − D_station`. This lab's own prediction never appears in that difference. It enters the
+analysis only as two columns of a least-squares design matrix, and `span{1, k·d, k·d′, t}` is
+the same subspace for every `k`. So the residual RMS and the unexplained residual are invariant
+under any rescaling of the model — **verified on the real captures: at ×1.10, ×0.50 and ×−1.00
+the reported 14.367 and 39.064 Hz, and the unexplained 3.966 and 6.527 Hz, were bit-identical.**
+A model with the wrong sign would have produced exactly the published figure.
+
+The prose said "a correct model predicts a flat residual". True, and empty: an *incorrect* model
+predicts the same flat residual, because the prediction of the residual is structurally zero
+either way. A test whose prediction does not depend on the hypothesis is not a test.
+
+This is 5.1 in its strongest form. 5.1 was a test evaluated at a degenerate *point*; this is a
+test evaluated on a degenerate *subspace*, and it is harder to see because the arithmetic all
+looks like it is doing something. The number produced was real, reproducible, and about the
+instrument.
+
+**Rule:** before quoting a measurement as validating a model, perturb the model and check the
+number moves. If it does not, say what the number actually bounds and go and find the experiment
+that does discriminate — here, a capture from a station that does not Doppler-correct before
+archiving. `tests/test_satnogs.py::test_the_reported_rms_does_not_test_the_doppler_model` pins
+the invariance so the claim cannot return quietly.
+
+**Second bill in the same review:** the well-posedness gate that exists to enforce 5.6 was
+itself a null test. `window_rms_ratio` came out at exactly 1.000 on both accepted captures,
+because the narrow window dropped 0 of 497 and 1 of 1173 frames — it discriminated only on the
+captures it was already rejecting. Replaced by `window_fill_fraction`, which measures how far
+the surviving population reaches towards the window edge: 0.13 and 0.35 accepted against 1.00
+and 1.00 rejected. A guard against a failure mode needs the same scrutiny as the result it
+guards.
