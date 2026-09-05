@@ -59,6 +59,10 @@ class Pass:
     range_rate_ms: np.ndarray  # m/s, positive receding
     altitude_m: float
     source: str                # "circular" or "tle:<name>"
+    # Absolute UTC of t_s = 0, ISO-8601, for passes propagated from a TLE. The
+    # analytic pass has no wall-clock epoch and leaves this None. Day 3 needs it:
+    # a recorded pass has to be lined up with the audio timeline it was captured on.
+    epoch_utc: str | None = None
 
     @property
     def max_elevation_deg(self) -> float:
@@ -88,6 +92,7 @@ class Pass:
             range_rate_ms=self.range_rate_ms[m],
             altitude_m=self.altitude_m,
             source=self.source,
+            epoch_utc=self.epoch_utc,
         )
 
 
@@ -185,13 +190,25 @@ def tle_pass(
     search_hours: float = 24.0,
     dt_s: float = 0.1,
     min_elevation_deg: float = 0.0,
+    t_start_utc: str | None = None,
+    t_end_utc: str | None = None,
 ) -> Pass:
-    """Propagate a real TLE and return the best pass in the search window.
+    """Propagate a real TLE and return a pass.
+
+    With no window given, searches ``search_hours`` from the TLE epoch and returns
+    the highest culmination -- the day-2 use, where any good pass will do.
+
+    With ``t_start_utc`` and ``t_end_utc`` given (ISO-8601, UTC), the event search
+    is skipped and exactly that window is sampled. Day 3 needs this: a recorded
+    observation is one specific pass at one specific wall-clock time, and the
+    highest pass near the TLE epoch is very probably a different one.
 
     skyfield is an optional dependency. Day 1 can be completed without it using the
     analytic model; day 3 cannot, because the recorded pass belongs to a specific
     satellite at a specific time.
     """
+    if (t_start_utc is None) != (t_end_utc is None):
+        raise ValueError("give both t_start_utc and t_end_utc, or neither")
     try:
         from skyfield.api import EarthSatellite, load, wgs84
     except ImportError as exc:  # pragma: no cover - environment-dependent
@@ -210,26 +227,42 @@ def tle_pass(
     sat = EarthSatellite(l1, l2, name, ts)
     station = wgs84.latlon(station_lat_deg, station_lon_deg, elevation_m=station_alt_m)
 
-    t0 = ts.tt_jd(sat.epoch.tt)
-    t1 = ts.tt_jd(sat.epoch.tt + search_hours / 24.0)
-    times, events = sat.find_events(station, t0, t1, altitude_degrees=min_elevation_deg)
+    if t_start_utc is not None:
+        # An explicit window. Sample it as given; no event search, no pass selection.
+        from datetime import datetime, timezone
 
-    # Pick the pass with the highest culmination: a high pass gives the cleanest
-    # Doppler curve and the largest angular rate, which is what day 2 needs.
-    best = None
-    for i, ev in enumerate(events):
-        if ev != 1:  # 1 = culminate
-            continue
-        alt, _, _ = (sat - station).at(times[i]).altaz()
-        if best is None or alt.degrees > best[1]:
-            best = (times[i], alt.degrees)
-    if best is None:
-        raise ValueError(f"no pass above {min_elevation_deg} deg within {search_hours} h of epoch")
+        def _utc(s: str) -> datetime:
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc)
 
-    t_culm = best[0]
-    half = 900.0  # s, generous half-window; trimmed by .visible() afterwards
-    offsets = np.arange(-half, half + dt_s, dt_s)
-    tt = ts.tt_jd(t_culm.tt + offsets / 86400.0)
+        t_a, t_b = _utc(t_start_utc), _utc(t_end_utc)
+        span_s = (t_b - t_a).total_seconds()
+        if span_s <= 0:
+            raise ValueError(f"empty window: {t_start_utc} to {t_end_utc}")
+        n = int(round(span_s / dt_s)) + 1
+        offsets = np.arange(n) * dt_s
+        t_anchor = ts.from_datetime(t_a)
+        tt = ts.tt_jd(t_anchor.tt + offsets / 86400.0)
+    else:
+        t0 = ts.tt_jd(sat.epoch.tt)
+        t1 = ts.tt_jd(sat.epoch.tt + search_hours / 24.0)
+        times, events = sat.find_events(station, t0, t1, altitude_degrees=min_elevation_deg)
+
+        # Pick the pass with the highest culmination: a high pass gives the cleanest
+        # Doppler curve and the largest angular rate, which is what day 2 needs.
+        best = None
+        for i, ev in enumerate(events):
+            if ev != 1:  # 1 = culminate
+                continue
+            alt, _, _ = (sat - station).at(times[i]).altaz()
+            if best is None or alt.degrees > best[1]:
+                best = (times[i], alt.degrees)
+        if best is None:
+            raise ValueError(f"no pass above {min_elevation_deg} deg within {search_hours} h of epoch")
+
+        t_anchor = best[0]
+        half = 900.0  # s, generous half-window; trimmed by .visible() afterwards
+        offsets = np.arange(-half, half + dt_s, dt_s)
+        tt = ts.tt_jd(t_anchor.tt + offsets / 86400.0)
 
     topo = (sat - station).at(tt)
     alt, _, dist = topo.altaz()
@@ -255,4 +288,5 @@ def tle_pass(
         range_rate_ms=d_dot,
         altitude_m=float(semi_major - R_EARTH),
         source=f"tle:{name}",
+        epoch_utc=tt[i0].utc_iso(),
     )

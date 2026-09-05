@@ -1,9 +1,83 @@
 {
-  "_comment": "Pinned SatNOGS observations. Day 3 fetches exactly these, so the Doppler validation is reproducible. Prefer narrowband CW or BPSK telemetry beacons near 435 MHz: the cleanest carrier to track. Fill in after browsing network.satnogs.org for good-quality, high-elevation passes; keep several in case one turns out to be noisy.",
-  "observations": [],
+  "_comment": "Pinned SatNOGS observations. Day 3 fetches exactly these, so the Doppler validation is reproducible. Narrowband CW telemetry beacons near 435 MHz: the cleanest carrier to track. Four are pinned rather than one so a noisy capture can be dropped without re-selecting, and so the residual structure can be compared across four different ground stations and four TLE ages. Selected 2026-09-05 from network.satnogs.org with status=good; every field below is copied from the observation record, not typed by hand.",
+  "observations": [
+    {
+      "id": 14917886,
+      "satellite": "SEEDS",
+      "norad_cat_id": 32791,
+      "mode": "CW",
+      "nominal_downlink_hz": 437485700,
+      "observation_frequency_hz": 437485700,
+      "max_elevation_deg": 77.0,
+      "start": "2026-08-31T22:37:04Z",
+      "end": "2026-08-31T22:41:36Z",
+      "station_id": 92,
+      "station_name": "APN01",
+      "station_lat_deg": 45.053,
+      "station_lon_deg": -83.458,
+      "station_alt_m": 182,
+      "tle_source": "Space-Track.org",
+      "note": "Highest-elevation CW beacon in the selection. Primary."
+    },
+    {
+      "id": 14915752,
+      "satellite": "KKS-1 (KISEKI)",
+      "norad_cat_id": 33499,
+      "mode": "CW",
+      "nominal_downlink_hz": 437385000,
+      "observation_frequency_hz": 437387000,
+      "max_elevation_deg": 76.0,
+      "start": "2026-08-31T19:37:44Z",
+      "end": "2026-08-31T19:45:58Z",
+      "station_id": 5078,
+      "station_name": "dm43",
+      "station_lat_deg": 33.4969,
+      "station_lon_deg": -111.9054,
+      "station_alt_m": 400,
+      "tle_source": "Space-Track.org",
+      "note": "The station tuned 2000 Hz above the transmitter's nominal downlink. That offset is in the record, so it is a known constant to subtract rather than a mystery in the residual."
+    },
+    {
+      "id": 14911409,
+      "satellite": "TISAT-1",
+      "norad_cat_id": 36799,
+      "mode": "CW",
+      "nominal_downlink_hz": 437305000,
+      "observation_frequency_hz": 437305000,
+      "max_elevation_deg": 58.0,
+      "start": "2026-08-31T18:29:23Z",
+      "end": "2026-08-31T18:36:13Z",
+      "station_id": 5137,
+      "station_name": "berlin_ma_sat",
+      "station_lat_deg": 42.377778,
+      "station_lon_deg": -71.658333,
+      "station_alt_m": 125,
+      "tle_source": "CalPoly",
+      "note": "The only capture whose TLE comes from CalPoly rather than Space-Track. Kept deliberately: a different TLE provider is a different residual."
+    },
+    {
+      "id": 14911418,
+      "satellite": "CUTE-1",
+      "norad_cat_id": 27844,
+      "mode": "CW",
+      "nominal_downlink_hz": 436835820,
+      "observation_frequency_hz": 436835820,
+      "max_elevation_deg": 53.0,
+      "start": "2026-08-31T21:48:50Z",
+      "end": "2026-08-31T21:59:08Z",
+      "station_id": 5137,
+      "station_name": "berlin_ma_sat",
+      "station_lat_deg": 42.377778,
+      "station_lon_deg": -71.658333,
+      "station_alt_m": 125,
+      "tle_source": "Space-Track.org",
+      "note": "Same station as TISAT-1, three hours later. Two passes from one receiver isolate a station clock offset from a per-satellite TLE error."
+    }
+  ],
   "requirements": {
     "min_max_elevation_deg": 40,
     "prefer_band_mhz": [430, 440],
     "need": ["waterfall or audio artefact", "TLE current at capture time", "known nominal beacon frequency"]
-  }
+  },
+  "_provenance": "The TLE current at capture is not stored here. It is carried on the observation record itself and written to satnogs/captures/<id>/tle.txt by satnogs/fetch.py, so the TLE used for the comparison is always the one the station used, never a fresher one fetched later."
 }

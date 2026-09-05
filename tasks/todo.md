@@ -129,20 +129,53 @@ Results, and two of them contradict what the plan assumed:
 
 ### Day 3 — validation against a real satellite
 
-- [ ] `satnogs/fetch.py`: pull passes from the SatNOGS archive by pinned observation ID
+- [x] `satnogs/fetch.py`: pull passes from the SatNOGS archive by pinned observation ID
       (`satnogs/manifest.json`) together with the TLE that was current at capture time.
-      Prefer narrowband CW/telemetry beacons in the 435 MHz band — they give the cleanest
-      carrier to track.
+      Four CW beacons near 435 MHz are pinned, peak elevations 53 to 77 degrees, across
+      three ground stations and two TLE providers.
 - [ ] Optional and free: register with SatNOGS Network and **schedule an observation on a
       volunteer ground station**, then use your own resulting recording. This is the closest
       thing to operating a station that costs nothing, and it is worth a sentence in the paper.
-- [ ] `satnogs/doppler_fit.py`: track the carrier (FFT peak, then a PLL or polynomial fit),
+- [ ] `satnogs/doppler_fit.py`: track the carrier (FFT peak with sub-bin interpolation),
       produce measured Doppler against time, compare with the SGP4 prediction from day 1.
 - [ ] Report **RMS error in Hz** and the residual's structure. A receiver clock offset shows as
       a constant; a stale TLE shows as a time shift; neither should be hidden.
-- [ ] Artefact: Figure 3, measured against predicted Doppler.
+- [ ] Artefact: Figure 4, measured against predicted Doppler.
 - **Done when** the day-1 model is validated on data this lab did not generate. This figure is
   the credibility anchor of the whole repository.
+
+#### What the pre-flight found, and what it changes
+
+The plan assumed the archived audio carries the raw carrier. **It does not.** Measured on all
+four captures before anything was fitted: the carrier sits between roughly 300 Hz and 3 kHz of
+audio and never sweeps. An uncorrected 437 MHz LEO carrier would sweep about ±10 kHz, which
+48 kHz audio has ample room for. The stations applied Doppler correction before archiving.
+
+So day 3 measures the **residual after the station's own correction**, which is a stricter
+test than the one planned. Both sides run SGP4 on the same TLE — the one the station held,
+written to `captures/<id>/tle.txt` — so a correct model predicts a *flat* residual, and every
+Hz of structure in it is real disagreement. The caption says the station corrected first.
+
+#### Predictions, written 2026-09-05 before `doppler_fit.py` was run
+
+Recorded here first, per `tasks/lessons.md` 4.4. The residual is fitted as
+`resid(t) = a0 + a1 * doppler(t) + a2 * doppler_rate(t)`, so a0 is a constant offset in Hz,
+a1 is a fractional scale error, and a2 is an effective time shift in seconds.
+
+1. **a0 dominates, at hundreds of Hz to several kHz.** It is the CW beat-note offset plus the
+   beacon's own frequency error. On a cubesat launched in 2003 to 2010 that error alone can be
+   several kHz. It is not a model error and must be reported apart from one.
+2. **RMS residual about a0 is under 100 Hz** — below 1 % of the ±10 kHz the station removed.
+3. **The time-shift term a2 is of order 0.1 to 1 s**, because the station updates its
+   correction in discrete steps rather than continuously. At 437 MHz the peak Doppler rate is
+   near 130 Hz/s, so 1 s of stepping is up to 130 Hz of sawtooth.
+4. **The scale term a1 is small, |a1| < 0.01.** Both sides propagate the same TLE with SGP4;
+   a percent-level scale error would mean one of them is wrong about the geometry.
+5. **The residual is worst near closest approach**, where the Doppler rate peaks and a stepped
+   correction lags hardest.
+
+If 2 fails while 1 holds, the tracker is the first suspect, not the orbital model
+(`lessons.md` 4.3).
 
 ### Day 4 — the link, and the shim that impairs it
 
