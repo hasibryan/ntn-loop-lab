@@ -54,12 +54,19 @@ functional split has to change for NTN, and it is measured rather than asserted.
 - [x] Junction the Ollama binary and GGUF weights from the first lab rather than copying ~2 GB
 - [x] Write `Makefile`, `requirements.txt`, `.gitignore`
 - [x] Author the three project skills: `ntn-run`, `rtl-hdl`, `paper-figures`
-- [ ] `git init` and first commit
-- [ ] `make doctor` passes: distro up, venv imports numpy/scipy/skyfield, nvcc present, Ollama answers
-- [ ] **Verify before writing anything about it:** does srsRAN Project implement any Rel-17 NTN
+- [x] `git init` and first commit — 7 commits on `main`, repo published to GitHub
+- [ ] `make doctor` passes: distro up, venv imports numpy/scipy/skyfield, nvcc present, Ollama
+      answers. **Checked 2026-09-20, does not fully pass.** Distro up, numpy/scipy/skyfield/sgp4
+      import; `nvcc` is absent from `ntn-lab` (no CUDA toolkit installed — blocks day 7); Ollama
+      answers once `ollama serve` is started by hand but lists zero models, so the junctioned
+      GGUF weights are not registered with it (blocks day 12). Neither is fixed here — see T15/T16.
+- [x] **Verify before writing anything about it:** does srsRAN Project implement any Rel-17 NTN
       feature (K_offset, ephemeris-assisted common TA, cell-specific timing offset)? Does
       OpenAirInterface? Record the answer with a citation in `tasks/lessons.md`. The plan
       assumes srsRAN does not, and treats that as the experiment rather than a defect.
+      **Done 2026-08-28** — srsRAN Project does (`lessons.md` 7.1, cited config + commit).
+      OpenAirInterface was not checked; not needed, since the day-5 experiment no longer depends
+      on the absence.
 
 ---
 
@@ -94,8 +101,8 @@ the day-5 prediction.
 **Staleness floor:** measurement 6.44 ms old on arrival, action 6.44 ms late on landing, total
 12.89 ms = **1.29x the fastest Near-RT loop period**. This is the NTN-specific result.
 
-- [ ] Still open: gaseous attenuation magnitudes are placeholders, flagged at runtime, to be
-      read off ITU-R P.676 before any figure containing them is published.
+- [x] Gaseous attenuation read off ITU-R P.676-12 Annex 2, 2026-09-20: 0.0342 dB zenith at
+      2 GHz, 0.2354 dB at 28 GHz (`orbit/channel.py`, `Mistakes.md` #1, `tasks/tickets.md` T01).
 
 ### Day 2 — array, beamforming, interference
 

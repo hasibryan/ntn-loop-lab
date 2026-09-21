@@ -8,17 +8,15 @@ Provenance of each term, because a figure has to be able to say which is which:
 
 * Doppler, Doppler rate, delay      -- derived, from geometry and the speed of light.
 * Free-space path loss              -- derived, Friis.
-* Atmospheric gas absorption        -- cited, ITU-R P.676 zenith values, scaled by
-                                       cosec(elevation). Placeholder magnitudes are
-                                       flagged at runtime until read off the
-                                       recommendation on day 1.
+* Atmospheric gas absorption        -- cited, ITU-R P.676-12 Annex 2 zenith values
+                                       (standard atmosphere, oxygen + water vapour),
+                                       scaled by cosec(elevation).
 * Tropospheric scintillation        -- cited functional form (ITU-R P.618), with the
                                        amplitude left as a parameter.
 """
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -27,12 +25,19 @@ from .constants import C
 from .geometry import Pass
 
 
-# Zenith one-way gaseous attenuation, dB, clear sky, temperate. These are
-# order-of-magnitude placeholders so that the pipeline runs end to end on day 1.
-# They are NOT read off ITU-R P.676 yet; `channel_profile` warns while they are in
-# use, and `tasks/lessons.md` records that they must be replaced before any figure
-# containing them is published.
-_ZENITH_GAS_DB_PLACEHOLDER = {2.0e9: 0.035, 28.0e9: 0.30}
+# Zenith one-way gaseous attenuation, dB, clear sky, standard atmosphere
+# (P = 1013.25 hPa, T = 288.15 K, water vapour density 7.5 g/m^3 -- ITU-R P.835 mean
+# annual global). ITU-R P.676-12 (08/2019) Annex 2: A = h_o * gamma_o + h_w * gamma_w,
+# gamma_o/gamma_w from Annex 2 Sec 1 (line-by-line, Annex 1 Eq. 1), h_o/h_w from
+# Annex 2 Sec 2.2 Eq. 30 / Eq. 35b. Computed and cross-checked with the `itur`
+# package's `itu676` module and its `gaseous_attenuation_slant_path(mode='approx')`;
+# both agree exactly. Values, per band:
+#   2 GHz:  gamma_o=0.00672 dB/km, gamma_w=0.00020 dB/km, h_o=5.044 km, h_w=1.697 km
+#   28 GHz: gamma_o=0.01870 dB/km, gamma_w=0.08306 dB/km, h_o=4.860 km, h_w=1.740 km
+# P.676-13 (08/2022) replaced this closed-form method with a per-0.5-GHz coefficient
+# table not reproducible from the recommendation text alone; -12's Annex 2 method is
+# used here and cited as such rather than as -13.
+_ZENITH_GAS_DB = {2.0e9: 0.0342, 28.0e9: 0.2354}
 
 
 @dataclass
@@ -50,7 +55,7 @@ class ChannelProfile:
     total_loss_db: np.ndarray
     fc_hz: float
     source: str
-    gas_is_placeholder: bool
+    gas_zenith_is_default: bool  # True unless the caller passed its own zenith_gas_db
 
     @property
     def peak_doppler_hz(self) -> float:
@@ -105,14 +110,14 @@ def gaseous_loss_db(elevation_deg: np.ndarray, fc_hz: float,
     behind cosec(el) breaks and the true path is shorter than it predicts. This lab
     works at 10 degrees and above, so the approximation holds where it is used.
     """
-    is_placeholder = zenith_db is None
-    if is_placeholder:
-        zenith_db = _ZENITH_GAS_DB_PLACEHOLDER.get(fc_hz)
+    is_default = zenith_db is None
+    if is_default:
+        zenith_db = _ZENITH_GAS_DB.get(fc_hz)
         if zenith_db is None:
-            nearest = min(_ZENITH_GAS_DB_PLACEHOLDER, key=lambda f: abs(f - fc_hz))
-            zenith_db = _ZENITH_GAS_DB_PLACEHOLDER[nearest] * (fc_hz / nearest)
+            nearest = min(_ZENITH_GAS_DB, key=lambda f: abs(f - fc_hz))
+            zenith_db = _ZENITH_GAS_DB[nearest] * (fc_hz / nearest)
     el = np.radians(np.maximum(elevation_deg, 5.0))
-    return zenith_db / np.sin(el), is_placeholder
+    return zenith_db / np.sin(el), is_default
 
 
 def scintillation_std_db(elevation_deg: np.ndarray, fc_hz: float,
@@ -142,14 +147,7 @@ def channel_profile(sat_pass: Pass, fc_hz: float,
     fd_dot = np.gradient(fd, t)
 
     fspl = free_space_path_loss_db(d, fc_hz)
-    gas, placeholder = gaseous_loss_db(sat_pass.elevation_deg, fc_hz, zenith_gas_db)
-    if placeholder:
-        warnings.warn(
-            "gaseous attenuation is a placeholder magnitude, not read off ITU-R P.676. "
-            "Replace before publishing any figure that includes it "
-            "(tasks/lessons.md 2.1).",
-            stacklevel=2,
-        )
+    gas, gas_is_default = gaseous_loss_db(sat_pass.elevation_deg, fc_hz, zenith_gas_db)
 
     return ChannelProfile(
         t_s=t,
@@ -163,5 +161,5 @@ def channel_profile(sat_pass: Pass, fc_hz: float,
         total_loss_db=fspl + gas,
         fc_hz=fc_hz,
         source=sat_pass.source,
-        gas_is_placeholder=placeholder,
+        gas_zenith_is_default=gas_is_default,
     )

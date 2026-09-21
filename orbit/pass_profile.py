@@ -70,7 +70,7 @@ def save(sat_pass, profiles) -> list[Path]:
             fc_hz=p.fc_hz,
             altitude_m=sat_pass.altitude_m,
             source=p.source,
-            gas_is_placeholder=p.gas_is_placeholder,
+            gas_zenith_is_default=p.gas_zenith_is_default,
         )
         written.append(out)
     return written
