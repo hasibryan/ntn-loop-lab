@@ -358,6 +358,46 @@ the day the repository is first cloned. This one was free — it fell out of a c
 another project — and it would have cost a day of building an experiment around an absence that
 was not there.
 
+### 7.2 SatNOGS Network has no path to an uncorrected capture, by design
+
+Day 3 left open work, restated in `tasks/todo.md`: "validating the day-1 model against real data
+still needs a capture from a station that does not Doppler-correct before archiving." T04 was
+opened to get one, the same way the four pinned captures were gotten — pick a station, pull it
+through `satnogs/fetch.py`, add it to `manifest.json`.
+
+**There is no such station, reachable that way.** Checked 2026-09-22 against the SatNOGS wiki's
+own flowgraph documentation and the client source: every standard `satnogs-flowgraphs` pipeline
+tunes a fixed-rate wideband SDR capture, then runs it through a **Doppler Compensation block**
+positioned upstream of every sink — audio, waterfall PNG, waterfall HDF5, and the optional IQ
+data artifact alike. The IQ artifact itself is documented as "post Doppler correction, which
+includes an LO offset." Confirmed independently by a Libre Space Community thread asking this
+exact question: the developers' answer is that raw IQ is not a network-provided feature at
+all, only something individual station operators can choose to save locally and publish
+elsewhere. Two did: TU Berlin's BEEGND-1/BEEGND-4 archives
+(`https://tubcloud.tu-berlin.de/s/DkiRJ9jyLKRBmXE`, `.../s/BwytjxFXN3dPAdB`), and one operator
+(station 4451) who uploads on request.
+
+So the four artifact types this lab already knows how to pull — audio, waterfall PNG, waterfall
+HDF5, IQ — are Doppler-corrected **before any of them exist**, at every station on the network,
+by the shared flowgraph every station runs. "Pick a different station" cannot produce what T04
+asked for; the correction is not a per-station setting, it is upstream of the artifact pipeline
+itself. `lessons.md` 5.7's invariance argument was never a bug in the day-3 measurement — it is
+what any SatNOGS-sourced measurement will always show, for any satellite and any station.
+
+**What is left, and it is a materially different task from day 3's:** the TU Berlin and station-
+4451 archives sit outside `network.satnogs.org`'s API entirely — different format, no guaranteed
+TLE-at-capture provenance, no guarantee either covers one of the four pinned satellites. Pulling
+one in is a new pipeline, not an extension of `satnogs/fetch.py`, and is now T04's actual scope.
+The alternative, this lab's own SDR, is ruled out by the machine constraints table (no radio
+purchased). T04 stays open, re-scoped, not blocked on schedule — no amount of waiting for a
+volunteer station helps.
+
+**Rule, the same one as 8.1 wearing 7.1's clothes a second time:** before designing a measurement
+around "just pick a different X," check whether X is where the constraint actually lives. Here
+X was "station"; the constraint was one shared flowgraph every station runs, so no choice of
+station could have escaped it, and this cost only a wiki read plus a forum search to find out
+before a schedule request was sent.
+
 ---
 
 ## 8. What day 3 found

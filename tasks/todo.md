@@ -217,7 +217,10 @@ tracker's SNR gate (`Mistakes.md` row 10). That is an upper bound on the lab-vs-
 disagreement, and a genuine end-to-end number for TLE-age-limited SGP4 accuracy.
 
 **Validating the day-1 model needs a capture from a station that does not Doppler-correct before
-archiving.** That is open.
+archiving.** Checked 2026-09-22: no SatNOGS Network station can supply one — the correction runs
+upstream of every artifact type, on every station, by shared design (`lessons.md` 7.2). The
+remaining path is an external raw-IQ archive published outside the network (leads: TU Berlin
+BEEGND-1/BEEGND-4, one operator on request), not a `satnogs/fetch.py`-style pull. Still open.
 
 Against the predictions:
 

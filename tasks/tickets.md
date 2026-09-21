@@ -14,7 +14,7 @@ Status: OPEN (ready to pull) · BLOCKED (named dependency) · DEFERRED (decided 
 | T01 | 1 | Replace placeholder gaseous attenuation with real ITU-R P.676 values | DONE | — | todo.md:97-98, Mistakes.md #1 |
 | T02 | 2 | Beam squint across the pass | DEFERRED | — | todo.md:127-128 (pointing error already dominates by an order of magnitude) |
 | T03 | 3 | Schedule a self-observation on SatNOGS Network, use own recording | OPEN | — | todo.md:136-137 (optional, free) |
-| T04 | 3 | Validation capture from a station that does NOT Doppler-correct before archiving | OPEN | — | lessons.md 5.7, README "still open" |
+| T04 | 3 | Source a raw-IQ capture from an *external* archive (not network.satnogs.org — its shared flowgraph Doppler-corrects every artifact on every station, lessons.md 7.2), build the pipeline to track it | OPEN — re-scoped, no `satnogs/fetch.py` shortcut | — | lessons.md 7.2, Mistakes.md #17 |
 | T05 | 4 | srsRAN Project gNB + Open5GS + srsUE over ZMQ inside `ntn-lab`, 10 MHz | OPEN | — | todo.md:245-246 |
 | T06 | 4 | `ranlink/shim/`: NCO shift + fractional-delay resampler + AWGN; verify standalone against a synthetic tone first | OPEN | — | todo.md:247-251 |
 | T07 | 5 | Delay-breaking sweep, 0-15 ms, SCS 15/30 kHz; predictions written first; repeat with `cell_specific_koffset` on/off (Rel-17 mechanism confirmed present, lessons.md 7.1) | BLOCKED | T05, T06 | todo.md:255-266 |
@@ -25,6 +25,16 @@ Status: OPEN (ready to pull) · BLOCKED (named dependency) · DEFERRED (decided 
 | T12 | 12 | rApp intent compiler (LangGraph + guardrails + schema validation), 60-intent benchmark | OPEN — not on the README's blocked list, independent of live E2 | — | todo.md:332-343 |
 | T13 | 13 | Three-arm runs + Figure 0 | BLOCKED | T07, T10, T11, T12 | todo.md:345-350 |
 | T14 | 14 | Ship: README diagram, paper, `make all`, CV bullets | BLOCKED | T13 | todo.md:352-357 |
+
+## T04 leads (external raw IQ, outside network.satnogs.org)
+
+- TU Berlin BEEGND-1: `https://tubcloud.tu-berlin.de/s/DkiRJ9jyLKRBmXE`
+- TU Berlin BEEGND-4: `https://tubcloud.tu-berlin.de/s/BwytjxFXN3dPAdB`
+- Station 4451 owner uploads raw IQ on request — see `https://network.satnogs.org/stations/4451/`
+
+None confirmed yet to cover one of the four already-pinned satellites, or to carry a reliable
+TLE-at-capture record the way `manifest.json`'s captures do. Check both before building a
+tracker around either.
 
 ## Pull order right now
 
